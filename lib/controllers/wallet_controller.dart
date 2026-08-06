@@ -245,12 +245,12 @@ class WalletController with ChangeNotifier, WidgetsBindingObserver {
     return false;
   }
 
-  Future<bool> register(String name, String email, String password, {String poblacion = ''}) async {
+  Future<bool> register(String name, String email, String password, {String lastName = '', String address = '', String city = '', String postalCode = ''}) async {
     _isLoading = true;
     notifyListeners();
-    bool success = await _walletService.register(name, email, password, poblacion: poblacion);
-    if (success && poblacion.isNotEmpty) {
-      await _storage.write(key: 'temp_poblacion_${email.trim().toLowerCase()}', value: poblacion);
+    bool success = await _walletService.register(name, email, password, lastName: lastName, address: address, city: city, postalCode: postalCode);
+    if (success && city.isNotEmpty) {
+      await _storage.write(key: 'temp_poblacion_${email.trim().toLowerCase()}', value: city);
     }
     _isLoading = false;
     notifyListeners();

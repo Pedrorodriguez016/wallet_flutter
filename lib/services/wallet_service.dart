@@ -50,7 +50,7 @@ class WalletService {
   }
 
   /// Registro: crea el usuario y emite/guarda la credencial ComercioCredencial en el backend
-  Future<bool> register(String name, String email, String password, {String lastName = '', String poblacion = 'Barcelona'}) async {
+  Future<bool> register(String name, String email, String password, {String lastName = '', String address = '', String city = 'Barcelona', String postalCode = ''}) async {
     try {
       final response = await _dio.post(
         '/auth/register',
@@ -59,7 +59,9 @@ class WalletService {
           'lastName': lastName.trim(),
           'email': email.trim(),
           'password': password.trim(),
-          'poblacion': poblacion.trim().isNotEmpty ? poblacion.trim() : 'Barcelona',
+          'address': address.trim(),
+          'city': city.trim().isNotEmpty ? city.trim() : 'Barcelona',
+          'postalCode': postalCode.trim(),
         },
       );
       return response.statusCode == 201 || response.statusCode == 200;
