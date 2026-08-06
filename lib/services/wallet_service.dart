@@ -2,16 +2,21 @@ import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/user.dart';
 import '../models/credential.dart';
+import '../utils/api_interceptor.dart';
 
 class WalletService {
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: (dotenv.env['API_URL'] ?? 'http://localhost:7001/wallet-api')
-          .trim(),
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    ),
-  );
+  late final Dio _dio;
+
+  WalletService() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: (dotenv.env['API_URL'] ?? 'http://localhost:7001/wallet-api').trim(),
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    );
+    _dio.interceptors.add(WalletAuthInterceptor(_dio));
+  }
 
   // --- AUTENTICACIÓN (vía Keycloak) ---
 
@@ -32,7 +37,7 @@ class WalletService {
 
   /// Login vía Keycloak: walt.id valida contra Keycloak y
   /// crea/vincula la cuenta en la tabla 'accounts' automáticamente
-  Future<String?> login(String email, String password) async {
+  Future<Map<String, dynamic>?> login(String email, String password) async {
     try {
       final response = await _dio.post(
         '/auth/keycloak/login',
@@ -42,7 +47,13 @@ class WalletService {
           'password': password.trim(),
         },
       );
-      return response.data['token'];
+      if (response.data is Map) {
+        return {
+          'token': response.data['token'] ?? response.data['access_token'],
+          'refresh_token': response.data['refresh_token'],
+        };
+      }
+      return {'token': response.data.toString()};
     } catch (e) {
       print('Error en login service (keycloak): $e');
       return null;
@@ -184,12 +195,33 @@ class WalletService {
     }
   }
 
+  Future<Map<String, String>?> refreshToken(String refreshTokenStr) async {
+    try {
+      final response = await _dio.post(
+        '/auth/refresh',
+        data: {'refresh_token': refreshTokenStr},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return {
+          'access_token': response.data['access_token'] ?? '',
+          'refresh_token': response.data['refresh_token'] ?? refreshTokenStr,
+        };
+      }
+      return null;
+    } catch (e) {
+      print('WALLETSERVICE: Error refrescando token -> $e');
+      return null;
+    }
+  }
+
   Future<bool> presentCredential(
     String walletId,
     String openid4vpUri,
     String token,
-    List<String> credentialIds,
-  ) async {
+    List<String> credentialIds, {
+    String? refreshTokenStr,
+    Function(String newToken, String newRefreshToken)? onTokenRefreshed,
+  }) async {
     try {
       final response = await _dio.post(
         '/wallet/$walletId/exchange/usePresentationRequest',
@@ -205,7 +237,42 @@ class WalletService {
         ),
       );
       return response.statusCode == 200;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 && refreshTokenStr != null && refreshTokenStr.isNotEmpty) {
+        print("WALLETSERVICE: 401 detectado en usePresentationRequest. Intentando refrescar token...");
+        final refreshed = await refreshToken(refreshTokenStr);
+        if (refreshed != null && refreshed['access_token']!.isNotEmpty) {
+          final newToken = refreshed['access_token']!;
+          final newRefresh = refreshed['refresh_token']!;
+          if (onTokenRefreshed != null) {
+            onTokenRefreshed(newToken, newRefresh);
+          }
+          // Reintentamos la llamada con el token refrescado
+          try {
+            final retryResp = await _dio.post(
+              '/wallet/$walletId/exchange/usePresentationRequest',
+              data: {
+                "presentationRequest": openid4vpUri,
+                "selectedCredentials": credentialIds,
+              },
+              options: Options(
+                headers: {
+                  'Authorization': 'Bearer $newToken',
+                  'Content-Type': 'application/json',
+                },
+              ),
+            );
+            return retryResp.statusCode == 200;
+          } catch (retryErr) {
+            print("WALLETSERVICE: Reintento tras refresh falló -> $retryErr");
+            return false;
+          }
+        }
+      }
+      print("WALLETSERVICE: Error en presentCredential -> $e");
+      return false;
     } catch (e) {
+      print("WALLETSERVICE: Error en presentCredential -> $e");
       return false;
     }
   }

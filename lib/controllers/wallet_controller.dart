@@ -216,9 +216,15 @@ class WalletController with ChangeNotifier, WidgetsBindingObserver {
     _isLoading = true;
     notifyListeners();
 
-    String? token = await _walletService.login(email, password);
-    if (token != null) {
+    Map<String, dynamic>? loginRes = await _walletService.login(email, password);
+    if (loginRes != null && loginRes['token'] != null) {
+      String token = loginRes['token'];
+      String? refreshToken = loginRes['refresh_token'];
+
       await _storage.write(key: 'wallet_token', value: token);
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _storage.write(key: 'wallet_refresh_token', value: refreshToken);
+      }
       await _storage.write(key: 'wallet_user_email', value: email);
       _userToken = token;
       _isAuthenticated = true;
@@ -287,11 +293,19 @@ class WalletController with ChangeNotifier, WidgetsBindingObserver {
           .where((id) => id.isNotEmpty)
           .toList();
 
+      String? currentRefreshToken = await _storage.read(key: 'wallet_refresh_token');
+
       bool success = await _walletService.presentCredential(
         _walletId,
         openid4vp,
         _userToken,
         credentialIds,
+        refreshTokenStr: currentRefreshToken,
+        onTokenRefreshed: (newToken, newRefreshToken) async {
+          _userToken = newToken;
+          await _storage.write(key: 'wallet_token', value: newToken);
+          await _storage.write(key: 'wallet_refresh_token', value: newRefreshToken);
+        },
       );
 
       if (success && _currentCallback.isNotEmpty) {
