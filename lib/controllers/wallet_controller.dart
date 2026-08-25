@@ -288,10 +288,21 @@ class WalletController with ChangeNotifier, WidgetsBindingObserver {
       _isLoading = true;
       notifyListeners();
 
+      if (_credentials.isEmpty) {
+        await loadCredentials();
+      }
+
       List<String> credentialIds = _credentials
           .map<String>((c) => c.id)
-          .where((id) => id.isNotEmpty)
+          .where((id) => id.isNotEmpty && id != "No ID")
           .toList();
+
+      if (credentialIds.isEmpty) {
+        print("HANDLE_PRESENTATION: No hay credenciales válidas en la billetera para presentar.");
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
 
       String? currentRefreshToken = await _storage.read(key: 'wallet_refresh_token');
 
