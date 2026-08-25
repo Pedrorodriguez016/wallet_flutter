@@ -30,7 +30,7 @@ class WalletApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'El meu Wallet Digital',
+      title: 'La Meva Butxaca',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const RootWrapper(),

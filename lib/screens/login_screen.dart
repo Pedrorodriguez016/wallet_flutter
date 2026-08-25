@@ -25,7 +25,7 @@ class LoginScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "El meu Wallet",
+                "La Meva Butxaca",
                 style: GoogleFonts.notoSerif(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,

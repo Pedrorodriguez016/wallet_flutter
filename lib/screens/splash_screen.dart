@@ -20,7 +20,7 @@ class SplashScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              "El meu Wallet",
+              "La Meva Butxaca",
               style: GoogleFonts.notoSerif(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,

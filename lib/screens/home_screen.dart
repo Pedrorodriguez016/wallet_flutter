@@ -16,7 +16,7 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          "El meu Wallet",
+          "La Meva Butxaca",
           style: GoogleFonts.notoSerif(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
