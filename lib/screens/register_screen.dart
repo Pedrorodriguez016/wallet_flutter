@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../controllers/wallet_controller.dart';
 import '../theme/app_theme.dart';
+import '../utils/password_validator.dart';
+import '../widgets/password_input_section.dart';
+import '../widgets/address_autocomplete_field.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,9 +19,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _postalCodeController = TextEditingController();
+
+  PasswordValidationResult? _passwordValidation;
 
   @override
   void dispose() {
@@ -26,6 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _addressController.dispose();
     _cityController.dispose();
     _postalCodeController.dispose();
@@ -76,57 +83,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 20),
             TextField(
               controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: "Email",
                 prefixIcon: Icon(Icons.email_outlined),
               ),
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Contrasenya",
-                prefixIcon: Icon(Icons.lock_outline),
-              ),
+            // Component modular de Contrasenya, Confirmació i Requisits
+            PasswordInputSection(
+              passwordController: _passwordController,
+              confirmPasswordController: _confirmPasswordController,
+              onChanged: (result) {
+                _passwordValidation = result;
+              },
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: _addressController,
-              decoration: const InputDecoration(
-                labelText: "Adreça",
-                prefixIcon: Icon(Icons.home_outlined),
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _cityController,
-              decoration: const InputDecoration(
-                labelText: "Ciutat",
-                prefixIcon: Icon(Icons.location_on_outlined),
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _postalCodeController,
-              decoration: const InputDecoration(
-                labelText: "Codi postal",
-                prefixIcon: Icon(Icons.local_post_office_outlined),
-              ),
+            // Component modular d'Adreça Autocompletada amb OpenStreetMap (Nominatim)
+            AddressAutocompleteField(
+              addressController: _addressController,
+              cityController: _cityController,
+              postalCodeController: _postalCodeController,
             ),
             const SizedBox(height: 40),
             MaterialButton(
               onPressed: wallet.isLoading
                   ? null
                   : () async {
+                      if (_nameController.text.trim().isEmpty ||
+                          _emailController.text.trim().isEmpty ||
+                          _passwordController.text.trim().isEmpty ||
+                          _confirmPasswordController.text.trim().isEmpty ||
+                          _addressController.text.trim().isEmpty ||
+                          _cityController.text.trim().isEmpty ||
+                          _postalCodeController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Si us plau, omple tots els camps"),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final passVal = _passwordValidation ??
+                          PasswordValidator.validate(
+                            _passwordController.text,
+                            _confirmPasswordController.text,
+                          );
+
+                      if (!passVal.isValid) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              passVal.errorMessage ??
+                                  "La contrasenya no compleix els requisits",
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
                       final success = await wallet.register(
-                        _nameController.text,
-                        _emailController.text,
-                        _passwordController.text,
-                        lastName: _lastNameController.text,
-                        address: _addressController.text,
-                        city: _cityController.text,
-                        postalCode: _postalCodeController.text,
+                        _nameController.text.trim(),
+                        _emailController.text.trim(),
+                        _passwordController.text.trim(),
+                        lastName: _lastNameController.text.trim(),
+                        address: _addressController.text.trim(),
+                        city: _cityController.text.trim(),
+                        postalCode: _postalCodeController.text.trim(),
                       );
                       if (success && context.mounted) {
                         Navigator.pop(context); // Volver al login
@@ -161,6 +185,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
             ),
+            const SizedBox(height: 30),
           ],
         ),
       ),
